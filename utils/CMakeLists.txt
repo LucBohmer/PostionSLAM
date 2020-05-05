@@ -14,6 +14,10 @@ find_package(catkin REQUIRED COMPONENTS
   OpenCV
 )
 
+catkin_package(
+  CATKIN_DEPENDS geometry_msgs
+)
+
 include_directories(${catkin_INCLUDE_DIRS})
 
 

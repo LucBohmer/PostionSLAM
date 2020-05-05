@@ -23,6 +23,8 @@
 #include "map.h"
 #include "inputreader.h"
 #include "basictypes/cvversioning.h"
+#include <sstream>
+#include "geometry_msgs/Point32.h"
 
 #include <ros/ros.h>
 #include <image_transport/image_transport.h>
@@ -32,11 +34,15 @@
 #include <chrono>
 #include <thread>
 
+#include "std_msgs/String.h"
+
 cv::Mat in_image;
 int ready = 0;
 bool finish = false;
 int vspeed;
 int currentFrameIndex = -1;
+cv::Point3f coordxyz;
+geometry_msgs::Point32 publ;
 
 InputReader vcap;
 ucoslam::UcoSlam Slam;
@@ -47,6 +53,8 @@ ucoslam::TimerAvrg Fps;
 cv::Mat camPose_c2g;
 ucoslam::MapViewer TheViewer;
 ucoslam::Frame coord;
+
+ros::Publisher chatter_pub;
 
 auto TheMap=std::make_shared<ucoslam::Map>();
 
@@ -62,6 +70,11 @@ void imageCallback(const sensor_msgs::ImageConstPtr& msg)
             camPose_c2g=Slam.process(in_image, image_params,currentFrameIndex);
             Fps.stop();
             
+            coordxyz = coord.getCameraCenter();
+            publ.x = coordxyz.x;
+            publ.y = coordxyz.y;
+            publ.z = coordxyz.z; 
+            chatter_pub.publish(publ);
 
             cout << "Image " << currentFrameIndex << " fps=" << 1./Fps.getAvrg()<< endl;
          // Slam.drawMatches(in_image);
@@ -91,15 +104,10 @@ void imageCallback(const sensor_msgs::ImageConstPtr& msg)
             if (k=='v'){
                 Slam.saveToFile("slam.slm");
             }
-            //read next
-           // vcap >> in_image;
-            //if(!camPose_c2g.empty()){
-              //  for(int s=0;s<vspeed-1;s++)
-                    //vcap >> in_image;
-                   // }
-                   cv::Point3f coordxyz;
-                   coordxyz = coord.getCameraCenter();
-                   cout<<"Number of KeyFrames= "<< TheMap->keyframes.getNextFrameIndex()<<endl;
+           // cout<<"Number of KeyFrames= "<< TheMap->keyframes.getNextFrameIndex()<<endl;
+            
+            //ros::spinOnce();
+
        cv::waitKey(5);
      }
      catch (cv_bridge::Exception& e)
@@ -192,12 +200,16 @@ int main(int argc,char **argv){
 
  ros::init(argc, argv, "image_listener");
  ros::NodeHandle nh;
-
+ chatter_pub = nh.advertise<geometry_msgs::Point32>("coordinates", 1000);
+ //ros::Publisher test;
+// test = nh.advertise<std_msgs::String>("coordinates/xyz", 1000);
  image_transport::ImageTransport it(nh);
  image_transport::Subscriber sub = it.subscribe("csi_cam_0/image_raw", 1, imageCallback);
 
+ 
+
 	try {
-        cout<<"we made it here!";
+        cout<<"testing the test";
 		
         if (argc < 3 || cml["-h"]) {
             cerr << "Usage: (video|live[:cameraIndex(0,1...)])  camera_params.yml [-params ucoslam_params.yml] [-map world]  [-out name] [-scale <float>:video resize factor]"
